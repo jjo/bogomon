@@ -78,6 +78,10 @@ def stats_html(txt_prefix):
       'cpu_latest' : STATS['cpu_latest'],
   }
 
+def ping(_txt):
+  """ useful for blackbox monitoring """
+  return "bogomon ok"
+
 def _cron_save_cpu():
   """ Periodically save cpu state """
   while True:
@@ -106,6 +110,7 @@ STATS = {
 
 PATH_REGISTRY = {
     '/stats.html':      ["text/html",  stats_html ],
+    '/r/ping':          ["text/plain", ping ],
     '/r/stat/cpu/txt':  ["text/plain", stat_cpu_txt ],
     '/r/stat/cpu/png':  ["image/png",  graph_cpu_png ],
     '/w/save/cpu/sto':  ["text/plain", save_cpu_sto ],
