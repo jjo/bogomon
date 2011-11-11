@@ -1,52 +1,59 @@
 #!/usr/bin/env python
+# Author: JuanJo Ciarlante <juanjosec@gmail.com>
+#
 # -*- coding: UTF-8 -*-
-"""Implements foo"""
+#
+# TODO(jjo): improve doc
+# TODO(jjo): un-prototype, make proper class(es) instead of funcs
+"""
+bogomon: self-contained Linux cpu monitor
+"""
 
-import os, re, time, rrdtool, thread
+import os, re, time, rrdtool, thread, sys
 from flup.server.fcgi import WSGIServer
 
 def _read_cpu():
-  """ returns cpu usage from /proc/stat in millisecs,
+  """ Returns cpu usage from /proc/stat as integer millisecs,
       prefixed by epoch timestamp"""
   cpu_string = open('/proc/stat').read()
   cpu_array = re.match('(cpu)\W+(\d+) (\d+) (\d+) (\d+)', cpu_string).groups()
   user, user_nice, system = [int(x) for x in cpu_array[1:4]]
   used = user+user_nice+system
   STATS['cpu_latest'] = used
-  return ( time.time(), int(used*1e3/JIFFIES))
+  return ( time.time(), int(used*1e3/CONFIG['JIFFIES']))
 
 def stat_cpu_txt(_, txt_prefix):
-  """Returns cumulative used (user+system) milli-seconds"""
+  """Returns cumulative used (user+system) as integer milli-secs"""
   timestamp, cpu = _read_cpu()
   return "%s%s %s" % (txt_prefix, timestamp, cpu)
  
 def save_cpu_sto(_, txt_prefix):
-  """short cut to update local rrd"""
+  """Samples local cpu and saves to local RRD db"""
   STATS['cpu_stos'] = STATS['cpu_stos'] + 1
   cpu = _read_cpu()
-  rrdtool.update('../rrdtool/jjo.rrd', '-t', 'cpurate',
+  rrdtool.update(CONFIG['RRD_FILE'], '-t', 'cpurate',
       '%s:%s' % (cpu[0], cpu[1]))
   return '%s%s saved' % (txt_prefix, cpu)
 
 def save_cpu_png(_, txt_prefix):
-  """return a png"""
+  """Builds a PNG from the locally saved statistics"""
   STATS['cpu_pngs'] = STATS['cpu_pngs'] + 1
   STATS['png_timestamp'] = time.time()
-  rrdtool.graph('../rrdtool/jjo.png',
-      'DEF:cpu=../rrdtool/jjo.rrd:cpurate:AVERAGE',
-      'LINE1:cpu#ff0000:cpu')
+  rrdtool.graph(CONFIG['PNG_FILE'],
+      'DEF:cpu=%s:cpurate:AVERAGE' % CONFIG['RRD_FILE'], 'LINE1:cpu#ff0000:cpu')
   return "%sgraph saved" % (txt_prefix)
 
 def graph_cpu_png(_env, _txt):
-  """return a png"""
+  """Returns the contents of saved PNG"""
   now = time.time()
-  if STATS['png_timestamp'] + 1 < now:
+  # Don't save more than 1 each 10sec
+  if STATS['png_timestamp'] + 10 < now:
     save_cpu_sto(_env, _txt)
     save_cpu_png(_env, _txt)
-  return open('../rrdtool/jjo.png').read()
+  return open(CONFIG['PNG_FILE']).read()
 
 def stats_html(_, txt_prefix):
-  """return an HTML page pointing to self"""
+  """Returns an HTML page pointing to self's PNG"""
   STATS['hits'] = STATS['hits'] + 1
   return """
   <meta http-equiv="refresh" content="10">
@@ -71,23 +78,6 @@ def stats_html(_, txt_prefix):
       'cpu_latest' : STATS['cpu_latest'],
   }
 
-STATS = {
-    'hits': 0,
-    'crons': 0,
-    'cpu_stos': 0,
-    'cpu_pngs': 0,
-    'cpu_latest': 0,
-    'png_timestamp': time.time(),
-}
-
-PATH_REGISTRY = {
-    '/stats.html':      ["text/html",  stats_html ],
-    '/r/stat/cpu/txt':  ["text/plain", stat_cpu_txt ],
-    '/r/stat/cpu/png':  ["image/png",  graph_cpu_png ],
-    '/w/save/cpu/sto':  ["text/plain", save_cpu_sto ],
-    '/w/save/cpu/png':  ["text/plain", save_cpu_png ],
-}
-
 def _cron_save_cpu():
   """ Periodically save cpu state """
   while True:
@@ -107,7 +97,36 @@ def app(environ, start_response):
     start_response('404 Not found', [('Content-Type', 'text/plain')])
     yield "Not found\n"
 
-## main()
-JIFFIES = os.sysconf(os.sysconf_names['SC_CLK_TCK'])
-thread.start_new_thread(_cron_save_cpu, ())
-WSGIServer(app).run()
+## "globals":
+CONFIG = {
+    # Kernel's TZ: pretty global :) 
+    'JIFFIES': os.sysconf(os.sysconf_names['SC_CLK_TCK']),
+    # Quick&dirty: 1st arg it RDD path
+    'RRD_FILE': sys.argv[1],
+    'PNG_FILE': sys.argv[2],
+}
+
+STATS = {
+    'hits': 0,
+    'crons': 0,
+    'cpu_stos': 0,
+    'cpu_pngs': 0,
+    'cpu_latest': 0,
+    'png_timestamp': time.time(),
+}
+
+PATH_REGISTRY = {
+    '/stats.html':      ["text/html",  stats_html ],
+    '/r/stat/cpu/txt':  ["text/plain", stat_cpu_txt ],
+    '/r/stat/cpu/png':  ["image/png",  graph_cpu_png ],
+    '/w/save/cpu/sto':  ["text/plain", save_cpu_sto ],
+    '/w/save/cpu/png':  ["text/plain", save_cpu_png ],
+}
+
+def main():
+  """ main fcgi loop """
+  thread.start_new_thread(_cron_save_cpu, ())
+  WSGIServer(app).run()
+
+if __name__ == "__main__":
+  main()
