@@ -22,12 +22,12 @@ def _read_cpu():
   STATS['cpu_latest'] = used
   return ( time.time(), int(used*1e3/CONFIG['JIFFIES']))
 
-def stat_cpu_txt(_, txt_prefix):
+def stat_cpu_txt(txt_prefix):
   """Returns cumulative used (user+system) as integer milli-secs"""
   timestamp, cpu = _read_cpu()
   return "%s%s %s" % (txt_prefix, timestamp, cpu)
  
-def save_cpu_sto(_, txt_prefix):
+def save_cpu_sto(txt_prefix):
   """Samples local cpu and saves to local RRD db"""
   STATS['cpu_stos'] = STATS['cpu_stos'] + 1
   cpu = _read_cpu()
@@ -35,7 +35,7 @@ def save_cpu_sto(_, txt_prefix):
       '%s:%s' % (cpu[0], cpu[1]))
   return '%s%s saved' % (txt_prefix, cpu)
 
-def save_cpu_png(_, txt_prefix):
+def save_cpu_png(txt_prefix):
   """Builds a PNG from the locally saved statistics"""
   STATS['cpu_pngs'] = STATS['cpu_pngs'] + 1
   STATS['png_timestamp'] = time.time()
@@ -48,11 +48,11 @@ def graph_cpu_png(_env, _txt):
   now = time.time()
   # Don't save more than 1 each 10sec
   if STATS['png_timestamp'] + 10 < now:
-    save_cpu_sto(_env, _txt)
-    save_cpu_png(_env, _txt)
+    save_cpu_sto(_txt)
+    save_cpu_png(_txt)
   return open(CONFIG['PNG_FILE']).read()
 
-def stats_html(_, txt_prefix):
+def stats_html(txt_prefix):
   """Returns an HTML page pointing to self's PNG"""
   STATS['hits'] = STATS['hits'] + 1
   return """
@@ -82,20 +82,9 @@ def _cron_save_cpu():
   """ Periodically save cpu state """
   while True:
     STATS['crons'] = STATS['crons'] + 1
-    save_cpu_sto([], "")
+    save_cpu_sto("")
     time.sleep(10)
 
-def app(environ, start_response):
-  """main fcgi entry point"""
-  path = environ.get('PATH_INFO')
-  content_type, func = PATH_REGISTRY.get(path, [None, None])
-  if func is not None:
-    txt_prefix = "%s: %s " % (environ.get('SERVER_NAME'), path)
-    start_response('200 OK', [('Content-Type', content_type)])
-    yield func(environ, txt_prefix)
-  else:
-    start_response('404 Not found', [('Content-Type', 'text/plain')])
-    yield "Not found\n"
 
 ## "globals":
 CONFIG = {
@@ -122,6 +111,18 @@ PATH_REGISTRY = {
     '/w/save/cpu/sto':  ["text/plain", save_cpu_sto ],
     '/w/save/cpu/png':  ["text/plain", save_cpu_png ],
 }
+
+def app(environ, start_response):
+  """main fcgi entry point"""
+  path = environ.get('PATH_INFO')
+  content_type, func = PATH_REGISTRY.get(path, [None, None])
+  if func is not None:
+    txt_prefix = "%s: %s " % (environ.get('SERVER_NAME'), path)
+    start_response('200 OK', [('Content-Type', content_type)])
+    yield func(environ, txt_prefix)
+  else:
+    start_response('404 Not found', [('Content-Type', 'text/plain')])
+    yield "Not found\n"
 
 def main():
   """ main fcgi loop """
