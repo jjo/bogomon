@@ -26,7 +26,7 @@ prep:
 	test -d $(RRD_DIR) || mkdir -p $(RRD_DIR)
 	test -d $(BOGOMON_VAR_RUN) || mkdir -p $(BOGOMON_VAR_RUN)
 	test -f $(RRD_FILE) || \
-		rrdtool create $(RRD_FILE) DS:cpurate:COUNTER:60:U:U RRA:AVERAGE:0.5:1:120 RRA:AVERAGE:0.5:10:60
+		rrdtool create $(RRD_FILE) -s 10 DS:cpurate:COUNTER:6:U:U RRA:AVERAGE:0.5:1:360 RRA:AVERAGE:0.5:10:36
 
 run: norootplease deps prep $(BOGOMON_PY) 
 	spawn-fcgi -n -P $(BOGOMON_PIDFILE) -d $(PWD)/$(BOGOMON_VAR_RUN) -a 127.0.0.1 -p $(BOGOMON_PORT) -- \

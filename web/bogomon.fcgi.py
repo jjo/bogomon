@@ -40,14 +40,17 @@ def save_cpu_png(txt_prefix):
   STATS['cpu_pngs'] = STATS['cpu_pngs'] + 1
   STATS['png_timestamp'] = time.time()
   rrdtool.graph(CONFIG['PNG_FILE'],
-      'DEF:cpu=%s:cpurate:AVERAGE' % CONFIG['RRD_FILE'], 'LINE1:cpu#ff0000:cpu')
+      '-s', '-60min',
+      'DEF:cpumsec=%s:cpurate:AVERAGE' % CONFIG['RRD_FILE'],
+      'CDEF:cpu=cpumsec,1000,/',
+      'LINE1:cpu#ff0000:cpu')
   return "%sgraph saved" % (txt_prefix)
 
 def graph_cpu_png(_txt):
   """Returns the contents of saved PNG"""
   now = time.time()
-  # Don't save more than 1 each 10sec
-  if STATS['png_timestamp'] + 10 < now:
+  # Don't save more than 1 per PNG_CACHE_EXPIRE_SECS
+  if STATS['png_timestamp'] + CONFIG['PNG_CACHE_EXPIRE_SECS'] < now:
     save_cpu_sto(_txt)
     save_cpu_png(_txt)
   return open(CONFIG['PNG_FILE']).read()
@@ -87,7 +90,7 @@ def _cron_save_cpu():
   while True:
     STATS['crons'] = STATS['crons'] + 1
     save_cpu_sto("")
-    time.sleep(10)
+    time.sleep(CONFIG['CPU_SAVE_PERIOD'])
 
 
 ## "globals":
@@ -97,6 +100,8 @@ CONFIG = {
     # Quick&dirty: 1st arg it RDD path
     'RRD_FILE': sys.argv[1],
     'PNG_FILE': sys.argv[2],
+    'CPU_SAVE_PERIOD': 2,
+    'PNG_CACHE_EXPIRE_SECS': 2,
 }
 
 STATS = {
@@ -105,7 +110,7 @@ STATS = {
     'cpu_stos': 0,
     'cpu_pngs': 0,
     'cpu_latest': 0,
-    'png_timestamp': time.time(),
+    'png_timestamp': 0,
 }
 
 PATH_REGISTRY = {
