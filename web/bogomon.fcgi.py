@@ -43,7 +43,7 @@ def save_cpu_png(txt_prefix):
       'DEF:cpu=%s:cpurate:AVERAGE' % CONFIG['RRD_FILE'], 'LINE1:cpu#ff0000:cpu')
   return "%sgraph saved" % (txt_prefix)
 
-def graph_cpu_png(_env, _txt):
+def graph_cpu_png(_txt):
   """Returns the contents of saved PNG"""
   now = time.time()
   # Don't save more than 1 each 10sec
@@ -119,7 +119,7 @@ def app(environ, start_response):
   if func is not None:
     txt_prefix = "%s: %s " % (environ.get('SERVER_NAME'), path)
     start_response('200 OK', [('Content-Type', content_type)])
-    yield func(environ, txt_prefix)
+    yield func(txt_prefix)
   else:
     start_response('404 Not found', [('Content-Type', 'text/plain')])
     yield "Not found\n"

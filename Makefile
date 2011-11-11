@@ -8,7 +8,7 @@ RRD_DIR=$(BOGOMON_VAR_LIB)/bogomon
 RRD_FILE=$(RRD_DIR)/local.rrd
 PNG_FILE=$(RRD_DIR)/local.png
 
-REQ_PKGS=python-flup
+REQ_PKGS=python-flup python-rrdtool
 REQ_BINS=spawn-fcgi rrdtool
 
 
