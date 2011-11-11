@@ -34,3 +34,6 @@ run: norootplease deps prep $(BOGOMON_PY)
 
 distclean: norootplease
 	rm -rf $(BOGOMON_VAR_RUN) $(BOGOMON_VAR_LIB)
+
+show_nginx_conf:
+	@echo $$'server {\n  listen 8000;\n  location / {\n    include /etc/nginx/fastcgi_params;\n    fastcgi_pass 127.0.0.1:$(BOGOMON_PORT);\n  }\n}'
