@@ -42,7 +42,7 @@ case "$1" in
   stop)
 	echo -n "Stopping $DESC: "
 	start-stop-daemon --stop --quiet --pidfile /var/run/$NAME.pid || \
-		fuser -s -k -n tcp $BOGOMON_PORT 
+		fuser -s -k -n tcp $BOGOMON_PORT  || true
 	echo "$NAME."
 	;;
   restart)
