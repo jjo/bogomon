@@ -9,7 +9,7 @@ for f in /etc/nginx/sites-available/bogomon /usr/lib/bogomon/bogomon.fcgi.py /et
 	case $f in /etc/init.d/*|/usr/lib/*) sudo chmod +x $f;;esac
 done
 sudo ln -sf ../sites-available/bogomon /etc/nginx/sites-enabled/bogomon
-sudo chown -R bogomon /var/lib/bogomon
+sudo chown -R bogomon:bogomon /var/lib/bogomon
 sudo /etc/init.d/spawn-fcgi restart
 sudo /etc/init.d/nginx configtest || exit 1
 sudo /etc/init.d/nginx status && sudo /etc/init.d/nginx start || sudo /etc/init.d/nginx restart
