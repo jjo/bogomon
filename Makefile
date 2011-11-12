@@ -1,5 +1,7 @@
+## THIS FILE IS NOT PART OF THE DEPLOYMENT
+## ... just a quick hack-all-together, for quick devel
 BOGOMON_PORT=9000
-BOGOMON_PY=web/bogomon.fcgi.py
+BOGOMON_PY=usr/lib/bogomon/bogomon.fcgi.py
 BOGOMON_VAR_RUN=./var/run
 BOGOMON_VAR_LIB=./var/lib
 
