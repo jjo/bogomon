@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # Author: JuanJo Ciarlante <juanjosec@gmail.com>
+# License: GPLv3
 #
 # -*- coding: UTF-8 -*-
 #
