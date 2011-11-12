@@ -20,8 +20,9 @@ DESC=spawn-fcgi
 #-P $(BOGOMON_PIDFILE) -d $(PWD)/$(BOGOMON_VAR_RUN) -a 127.0.0.1 -p $(BOGOMON_PORT) -- $(PWD)/$(BOGOMON_PY)  $(PWD)/$(RRD_FILE) $(PWD)/$(PNG_FILE)
 
 RRD_FILE=/var/lib/bogomon/local.rrd
+BOGOMON_USER=bogomon
 BOGOMON_PORT=9000
-DAEMON_OPTS="-n -d /var/run/bogomon -a 127.0.0.1 -p $BOGOMON_PORT -u bogomon -- /usr/lib/bogomon/bogomon.fcgi.py $RRD_FILE /var/lib/bogomon/local.png"
+DAEMON_OPTS="-n -d /var/run/bogomon -a 127.0.0.1 -p $BOGOMON_PORT -u $BOGOMON_USER -- /usr/lib/bogomon/bogomon.fcgi.py $RRD_FILE /var/lib/bogomon/local.png"
 
 test -x $DAEMON || exit 0
 
@@ -32,7 +33,7 @@ set -e
 case "$1" in
   start)
 	test -f $RRD_FILE || \
-		rrdtool create $RRD_FILE -s 10 DS:cpurate:COUNTER:6:U:U RRA:AVERAGE:0.5:1:360 RRA:AVERAGE:0.5:10:36
+		sudo -u $BOGOMON_USER rrdtool create $RRD_FILE -s 10 DS:cpurate:COUNTER:6:U:U RRA:AVERAGE:0.5:1:360 RRA:AVERAGE:0.5:10:36
 
 	echo -n "Starting $DESC: "
 	start-stop-daemon --start --quiet -bm --pidfile /var/run/$NAME.pid \
