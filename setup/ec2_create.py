@@ -10,7 +10,7 @@
 """
 import boto, os, time, telnetlib, socket, sys
 
-IMG = 'ami-29f43840' ## ubuntu 11.10 32bit
+IMG = 'ami-6936fb00' ## ubuntu 10.04 32bit, small, us-east-1
 BOGOMON_PORT = 8000  ## only used for the final "informational" message
 BRANCH = 'master'    ## potentially allows for e.g. 'staging', 'experimental'
 
@@ -32,7 +32,7 @@ def start(ec2_img, ec2_keypair):
       instance.dns_name, instance)
   return instance
 
-def run(host, ssh_pubk, cmd):
+def run(ssh_pubk, host, cmd):
   """ Run: ssh ubunbu@... at just created host, to complete its setup """
   for _ in xrange(30):
     try:
@@ -40,9 +40,12 @@ def run(host, ssh_pubk, cmd):
       break
     except socket.error:
       time.sleep(5)
+  # sshd already listening, but allow some time for key propagation
+  time.sleep(5)
   if ssh_pubk:
     ssh_pubk = "-i %s" % ssh_pubk
-  retval = os.system('ssh %s ubuntu@%s "%s"' % (ssh_pubk, host, cmd))
+  retval = os.system('set -x;ssh -v %s ubuntu@%s "%s"' % (
+    ssh_pubk, host, cmd))
   if retval != 0:
     raise SystemExit
 
@@ -50,22 +53,22 @@ def main():
   """ main(), what else """
   # Override default args with argv[1:] ,
   # also IMO easier for validation instead of len(sys.argv)
-  args = [None, None]
+  args = [None, None, BRANCH]
   for i, val in enumerate(sys.argv[1:]):
     args[i] = val
   if args[0] is None:
-    sys.exit('Usage: %s <ec2_keypair> [ssh_priv_key_filepath]\n')
+    sys.exit('Usage: %s <ec2_keypair> [ssh_priv_key_filepath] [branch]\n')
 
-  ec2_keypair, ec2_sshpubk = args
+  ec2_keypair, ec2_sshpubk, branch = args
   if ec2_sshpubk and not os.path.isfile(ec2_sshpubk):
     sys.exit('Error: file %s doesnt exist' % ec2_sshpubk)
 
   instance = start(IMG, ec2_keypair)
 
   try:
-    run(instance.dns_name, ec2_sshpubk, (
-        'wget -O- https://raw.github.com/'
-        'jjo/bogomon/%s/setup/ec2-setup.sh |bash -x') % (BRANCH))
+    run(ec2_sshpubk, instance.dns_name, (
+        'wget https://raw.github.com/jjo/bogomon/%s/setup/ec2-setup.sh;'
+        'bash -x ec2-setup.sh %s') % (branch, branch))
   except SystemExit:
     print "Failed ssh setup, destroying {0}".format(instance)
     instance.stop()
