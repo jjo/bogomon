@@ -1,11 +1,11 @@
 #!/usr/bin/env python
-""" Spawn an EC2 instance, populating according with:
+""" Spawn an EC2 instance, populate it with:
     https://raw.github.com/jjo/bogomon/<branch>/setup/ec2-setup.sh
     , which is essentially an ubuntu 32bits
     + nginx
     + spawn-fcgi running bogomon.fcgi.py, which does:
-      - periodic cpu usage collection into RRD file
-      - generate html+png stats
+      - high frequency (T=~2sec) cpu usage collection into an RRD file
+      - generate html+png stats on-demand
 
 """
 import boto, os, time, telnetlib, socket, sys
@@ -25,7 +25,7 @@ class EC2bogo():
     self.branch = branch
     self.instance = None
 
-  def start(self):
+  def create(self):
     """ Connect to EC2, spawn an instance from ec2_img, attaching
         ec2_keypair to it """
     print 'Starting EC2 with image {0}'.format(self.ec2_img)
@@ -42,7 +42,7 @@ class EC2bogo():
     print 'Started the hostname: {0}, instance: {1}'.format(
         self.instance.dns_name, self.instance)
 
-  def run(self, cmd):
+  def runcmd(self, cmd):
     """ Run: ssh ubunbu@... at just created host, to complete its setup """
     for _ in xrange(30):
       try:
@@ -69,19 +69,21 @@ def main():
   """ main(), what else """
   # Override default args with argv[1:] ,
   # also IMO easier for validation instead of len(sys.argv)
+  usage = ('Usage: %s <ec2_keypair>'
+           '[ssh_priv_key_filepath] [branch] [ami-image]\n')
   args = [None, None, BRANCH, IMG]
   for i, val in enumerate(sys.argv[1:]):
     args[i] = val
   if args[0] is None:
-    sys.exit('Usage: %s <ec2_keypair> [ssh_priv_key_filepath] [branch]\n')
+    sys.exit(usage)
 
   ec2_keypair, ssh_privk, branch, ec2_image = args
   try:
     ec2_instance = EC2bogo(ec2_image, ec2_keypair, ssh_privk, branch)
-    ec2_instance.start()
-    ec2_instance.run((
+    ec2_instance.create()
+    ec2_instance.runcmd(
           'wget https://raw.github.com/jjo/bogomon/%s/setup/ec2-setup.sh;'
-          'bash -x ec2-setup.sh %s') % (branch, branch))
+          'bash -x ec2-setup.sh %s' % (branch, branch))
     print ('Hopefully ready at:\n'
            'http://{0}:{1}/stats.html\ninstance: {2}'.format(
              ec2_instance.instance.dns_name, BOGOMON_PORT,

@@ -10,7 +10,7 @@
 bogomon: self-contained Linux cpu monitor
 """
 
-import os, re, time, rrdtool, thread, sys
+import os, re, time, rrdtool, thread, sys, subprocess
 from flup.server.fcgi import WSGIServer
 
 def _read_cpu():
@@ -47,7 +47,7 @@ def save_cpu_png(txt_prefix):
       'LINE1:cpu#ff0000:cpu')
   return "%sgraph saved" % (txt_prefix)
 
-def graph_cpu_png(_txt):
+def stat_cpu_png(_txt):
   """Returns the contents of saved PNG"""
   now = time.time()
   # Don't save more than 1 per PNG_CACHE_EXPIRE_SECS
@@ -93,6 +93,14 @@ def _cron_save_cpu():
     save_cpu_sto("")
     time.sleep(CONFIG['CPU_SAVE_PERIOD'])
 
+def run_ab(_):
+  """ DANGER: THIS SHOULD BE DISABLED :P
+      Run ab (apache-benchmark) to do some local torture """
+  pipe = subprocess.Popen('/usr/sbin/ab -n5000 -c10 '
+      'http://127.0.0.1:80/ 2>&1',
+      shell=True, bufsize=4096, stdout=subprocess.PIPE).stdout
+  return pipe.read()
+
 
 ## "globals":
 CONFIG = {
@@ -118,9 +126,10 @@ PATH_REGISTRY = {
     '/stats.html':      ["text/html",  stats_html ],
     '/r/ping':          ["text/plain", ping ],
     '/r/stat/cpu/txt':  ["text/plain", stat_cpu_txt ],
-    '/r/stat/cpu/png':  ["image/png",  graph_cpu_png ],
+    '/r/stat/cpu/png':  ["image/png",  stat_cpu_png ],
     '/w/save/cpu/sto':  ["text/plain", save_cpu_sto ],
     '/w/save/cpu/png':  ["text/plain", save_cpu_png ],
+    '/r/run/t0rtur3':   ["text/plain", run_ab ],
 }
 
 def app(environ, start_response):
@@ -138,6 +147,10 @@ def app(environ, start_response):
 def main():
   """ main fcgi loop """
   thread.start_new_thread(_cron_save_cpu, ())
+  if not os.path.exists(CONFIG['RRD_FILE']):
+    rrdtool.create(CONFIG['RRD_FILE'], '-s', 5*CONFIG['CPU_SAVE_PERIOD'],
+      'DS:cpurate:COUNTER:6:U:U', 'RRA:AVERAGE:0.5:1:360',
+      'RRA:AVERAGE:0.5:10:36')
   WSGIServer(app).run()
 
 if __name__ == "__main__":
